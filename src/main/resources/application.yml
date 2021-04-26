@@ -1,0 +1,74 @@
+server:
+  port: 8040
+spring:
+  application:
+    name: gateway
+  zipkin:
+    base-url: http://localhost:9411/
+    # 关闭服务发现,解决异常 http://www.imooc.com/article/291578
+    discoveryClientEnabled: false
+  sleuth:
+    sampler:
+      # 抽样率1.0 = 100% 上报所有,默认1.0 , 抽样降低对应用性能对影响
+      probability: 1.0
+  cloud:
+    nacos:
+      discovery:
+        server-addr: localhost:8848
+        # 命名空间 dev
+        namespace: 6b0e9c31-3145-411d-bf5f-439f90a03ad2
+        cluster-name: BJ
+    gateway:
+      discovery:
+        locator:
+          # 让gateway通过服务发现组件找到其他的微服务
+          enabled: true
+      routes:
+        - id: user_route
+          # users对应用户中心
+          uri: lb://user-center
+          # 谓词识别是这个就访问这个微服务
+          predicates:
+            - Path=/users/**
+        - id: content_route
+          # shares admin 对应内容中心
+          uri: lb://content-center
+          predicates:
+            - Path=/shares/**,/admin/**,/notices/**
+#        - id: between_route
+#          uri: lb://user-center
+#          predicates:
+#            #自定义谓词工厂
+#            #- TimeBetween=上午9:00,下午22:00
+#
+#            # 访问localhost:8040/** -> user-center/**
+#            # eg. 访问http://localhost:8040/users/1 -> user-center/users/1
+#            # 当且仅当请求时的时间Between配置的时间时，才会转发到用户微服务
+#            # - Between=2017-01-20T17:42:47.789-07:00[America/Denver], 2027-01-21T17:42:47.789-07:00[America/Denver]
+#            # after之后的时间才可以访问
+#             - After=2021-01-20T17:42:47.789-07:00[America/Denver]
+#          filters:
+#             # 局部过滤器按照从上往下1 auto + 1的顺序执行 ， 若果有default-filter 1按照 1 - 1 2 - 2 这样
+#             # 为原始请求添加名为 X-Request-Foo ，值为 Bar 的请求头, 转发给user-center, 「可以在NettyRoutingFilter中打断点查看header信息」
+#             - AddRequestHeader=X-Request-Foo, Bar
+#             # 为原始请求添加参数.. 还有其他等等
+#             # - AddRequestParameter=foo, bar
+#             # 自定义拦截器,注意名称前缀的一致性
+#             - PreLog=a,b
+
+# 健康检测报漏GateWay监控端点
+management:
+  endpoints:
+    web:
+      exposure:
+        include: '*'
+  endpoint:
+    health:
+      show-details: always
+# 网关日志「请求细节」
+logging:
+  level:
+    org.springframework.cloud.gateway: trace
+    org.springframework.http.server.reactive: debug
+    org.springframework.web.reactive: debug
+    reactor.ipc.netty: debug
